@@ -38,13 +38,7 @@ export class EDAAppStack extends cdk.Stack {
 
     const newImageTopic = new sns.Topic(this, "NewImageTopic", {
       displayName: "New Image topic",
-    }); 
-
-    newImageTopic.addSubscription(
-      new subs.SqsSubscription(imageProcessQueue)
-    );
-
-    newImageTopic.addSubscription(new subs.SqsSubscription(mailerQ));
+    });
 
     // Lambda functions
 
@@ -65,6 +59,12 @@ export class EDAAppStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(3),
       entry: `${__dirname}/../lambdas/mailer.ts`,
     });
+
+    newImageTopic.addSubscription(
+      new subs.SqsSubscription(imageProcessQueue)
+    );
+
+    newImageTopic.addSubscription(new subs.LambdaSubscription(mailerFn));
 
     // S3 --> SQS
     imagesBucket.addEventNotification(
