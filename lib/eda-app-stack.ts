@@ -22,6 +22,12 @@ export class EDAAppStack extends cdk.Stack {
       publicReadAccess: false,
     });
 
+    // DynamoDB Table
+    const imageTable = new cdk.aws_dynamodb.Table(this, "ImageTable", {
+      partitionKey: { name: "fileName", type: cdk.aws_dynamodb.AttributeType.STRING},
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    })
+
     const imageProcessQueue = new sqs.Queue(this, "img-created-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
     });
