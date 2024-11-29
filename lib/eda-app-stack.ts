@@ -29,17 +29,21 @@ export class EDAAppStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     })
 
+    const deadLetterQueue = new sqs.Queue(this, "mailer-dlq", {
+      retentionPeriod: Duration.minutes(10),
+    })
+
     const imageProcessQueue = new sqs.Queue(this, "img-created-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
+      deadLetterQueue: {
+        maxReceiveCount: 5,
+        queue: deadLetterQueue,
+      }
     });
 
     const mailerQ = new sqs.Queue(this, "mailer-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
     });
-
-    const mailerDLQ = new sqs.Queue(this, "mailer-dlq", {
-      retentionPeriod: Duration.minutes(10),
-    })
 
     const newImageTopic = new sns.Topic(this, "NewImageTopic", {
       displayName: "New Image topic",
@@ -63,6 +67,12 @@ export class EDAAppStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.seconds(3),
       entry: `${__dirname}/../lambdas/mailer.ts`,
+    });
+
+    const rejectionMailerFn = new lambdanode.NodejsFunction(this, 'rejection-mailer', {
+      runtime: lambda.Runtime.NODEJS_16_X,
+      entry: `${__dirname}/../lambdas/mailer.ts`,
+      handler: 'rejectionHandler'
     });
 
     newImageTopic.addSubscription(
