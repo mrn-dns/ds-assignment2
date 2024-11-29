@@ -8,7 +8,6 @@ import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as sns from "aws-cdk-lib/aws-sns";
 import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { Duration } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -23,22 +22,8 @@ export class EDAAppStack extends cdk.Stack {
       publicReadAccess: false,
     });
 
-    // DynamoDB Table
-    const imageTable = new cdk.aws_dynamodb.Table(this, "ImageTable", {
-      partitionKey: { name: "fileName", type: cdk.aws_dynamodb.AttributeType.STRING},
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    })
-
-    const deadLetterQueue = new sqs.Queue(this, "mailer-dlq", {
-      retentionPeriod: Duration.minutes(10),
-    })
-
     const imageProcessQueue = new sqs.Queue(this, "img-created-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
-      deadLetterQueue: {
-        maxReceiveCount: 5,
-        queue: deadLetterQueue,
-      }
     });
 
     const mailerQ = new sqs.Queue(this, "mailer-queue", {
@@ -47,7 +32,13 @@ export class EDAAppStack extends cdk.Stack {
 
     const newImageTopic = new sns.Topic(this, "NewImageTopic", {
       displayName: "New Image topic",
-    });
+    }); 
+
+    newImageTopic.addSubscription(
+      new subs.SqsSubscription(imageProcessQueue)
+    );
+
+    newImageTopic.addSubscription(new subs.SqsSubscription(mailerQ));
 
     // Lambda functions
 
@@ -68,18 +59,6 @@ export class EDAAppStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(3),
       entry: `${__dirname}/../lambdas/mailer.ts`,
     });
-
-    const rejectionMailerFn = new lambdanode.NodejsFunction(this, 'rejection-mailer', {
-      runtime: lambda.Runtime.NODEJS_16_X,
-      entry: `${__dirname}/../lambdas/mailer.ts`,
-      handler: 'rejectionHandler'
-    });
-
-    newImageTopic.addSubscription(
-      new subs.SqsSubscription(imageProcessQueue)
-    );
-
-    newImageTopic.addSubscription(new subs.LambdaSubscription(mailerFn));
 
     // S3 --> SQS
     imagesBucket.addEventNotification(
