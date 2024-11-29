@@ -37,7 +37,7 @@ export const handler: SQSHandler = async (event: any) => {
           const { name, email, message }: ContactDetails = {
             name: "The Photo Album",
             email: SES_EMAIL_FROM,
-            message: `We received your Image. Its URL is s3://${srcBucket}/${srcKey}`,
+            message: `We did not receive your Image. Its URL is s3://${srcBucket}/${srcKey}`,
           };
           const params = sendEmailParams({ name, email, message });
           await client.send(new SendEmailCommand(params));
@@ -68,7 +68,7 @@ function sendEmailParams({ name, email, message }: ContactDetails) {
       },
       Subject: {
         Charset: "UTF-8",
-        Data: `New image Upload`,
+        Data: `FAILED: Image Upload `,
       },
     },
     Source: SES_EMAIL_FROM,
