@@ -22,8 +22,16 @@ export class EDAAppStack extends cdk.Stack {
       publicReadAccess: false,
     });
 
+    const imageDLQ = new sqs.Queue(this, "img-dlq", {
+      retentionPeriod: cdk.Duration.minutes(10),
+    })
+
     const imageProcessQueue = new sqs.Queue(this, "img-created-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
+      deadLetterQueue: {
+        queue: imageDLQ,
+        maxReceiveCount: 3,
+      }
     });
 
     const mailerQ = new sqs.Queue(this, "mailer-queue", {
