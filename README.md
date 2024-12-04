@@ -2,9 +2,7 @@
 
 __Name:__ Denis Remus Marincas
 
-__YouTube Demo link__ - [The URL of the video demonstration of the app.]
-
-[ Note: The video must include an audio.]
+__YouTube Demo link__ - https://youtu.be/IDwsWgrviZY
 
 ### Phase 1.
 
@@ -14,7 +12,7 @@ __YouTube Demo link__ - [The URL of the video demonstration of the app.]
 
 + <b>Test Confirmation mailer: </b><ins>aws s3 cp ./images/sunflower.jpeg  s3://edastack-images9bf4dcd5-p263ocs5cett/sunflower.jpeg</ins>
 + <b>Test Rejection mailer: </b><ins>aws s3 cp ./images/error.gif  s3://edastack-images9bf4dcd5-p263ocs5cett/error.gif</ins>
-### Phase 2 (if relevant).
+### Phase 2.
 
 + Confirmation Mailer - Fully implemented.
 + Rejection Mailer - Fully implemented.
@@ -23,7 +21,7 @@ __YouTube Demo link__ - [The URL of the video demonstration of the app.]
 
 + <b>Update command: </b><ins>aws sns publish --topic-arn "arn:aws:sns:region:accountID:topicID" --message-attributes file://attributes.json --message file://message.json</ins>
 
-### Phase 3 (if relevant).
+### Phase 3.
 
 + Confirmation Mailer - Fully implemented. Triggered on DynamoDB add action.
 + Rejection Mailer - Fully implemented.
