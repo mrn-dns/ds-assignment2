@@ -10,6 +10,7 @@ import * as subs from "aws-cdk-lib/aws-sns-subscriptions";
 import * as iam from "aws-cdk-lib/aws-iam";
 
 import { Construct } from "constructs";
+import { DYNAMODB_TABLE } from "env";
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class EDAAppStack extends cdk.Stack {
@@ -46,10 +47,17 @@ export class EDAAppStack extends cdk.Stack {
       displayName: "New Image topic",
     }); 
 
-    newImageTopic.addSubscription(
-      new subs.SqsSubscription(imageProcessQueue)
-    );
 
+    newImageTopic.addSubscription(new subs.SqsSubscription(imageProcessQueue, {
+      filterPolicyWithMessageBody: {
+        Records: sns.FilterOrPolicy.policy({
+          eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({
+            allowlist: ["ObjectCreated:Put"],
+          })),
+        })
+      }
+    })
+  );
 
     // Lambda functions
 
@@ -81,7 +89,17 @@ export class EDAAppStack extends cdk.Stack {
       },
     });
 
-    // S3 --> SQS
+    const updateTableFn = new lambdanode.NodejsFunction(this, "UpdateTableFn", {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(10),
+      entry: `${__dirname}/../lambdas/update-table.ts`,
+      environment: {
+        DYNAMODB_TABLE: dynamoTable.tableName,
+      },
+    });
+
+    // S3 --> SNS
     imagesBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.SnsDestination(newImageTopic)  
@@ -93,12 +111,33 @@ export class EDAAppStack extends cdk.Stack {
       maxBatchingWindow: cdk.Duration.seconds(5),
     });
 
+    // SQS --> Lambda
     const rejectionMailEventSource = new events.SqsEventSource(imageDLQ, {
       batchSize: 5,
       maxBatchingWindow: cdk.Duration.seconds(5),
     });
 
-    newImageTopic.addSubscription(new subs.LambdaSubscription(confirmationMailerFn));
+    // SNS --> Lambda
+    newImageTopic.addSubscription(new subs.LambdaSubscription(confirmationMailerFn, {
+        filterPolicyWithMessageBody: {
+          Records: sns.FilterOrPolicy.policy({
+            eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({
+              allowlist: ["ObjectCreated:Put"],
+            })),
+          })
+        }
+      })
+    );
+
+    newImageTopic.addSubscription(new subs.LambdaSubscription(updateTableFn, {
+        filterPolicy: {
+          metadata_type: sns.SubscriptionFilter.stringFilter({
+            allowlist: ["Caption", "Date", "Photographer"]
+          }),
+        }
+      })
+    )
+
     logImageFn.addEventSource(newImageEventSource);
     rejectionMailerFn.addEventSource(rejectionMailEventSource);
 
@@ -107,6 +146,7 @@ export class EDAAppStack extends cdk.Stack {
     imagesBucket.grantRead(logImageFn);
 
     dynamoTable.grantReadWriteData(logImageFn);
+    dynamoTable.grantReadWriteData(updateTableFn);
 
     confirmationMailerFn.addToRolePolicy(
       new iam.PolicyStatement({
