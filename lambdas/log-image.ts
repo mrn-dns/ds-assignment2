@@ -4,7 +4,7 @@ import {
   GetObjectCommandInput,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { DynamoDBClient, PutItemCommand, PutItemCommandInput } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, PutItemCommand, DeleteItemCommand, PutItemCommandInput } from "@aws-sdk/client-dynamodb";
 
 // Initialize S3 and DynamoDB clients
 const s3 = new S3Client();
@@ -14,54 +14,59 @@ const dynamodb = new DynamoDBClient({});
 const validExtensions = [".jpeg", ".png"];
 
 export const handler: SQSHandler = async (event) => {
-  console.log("Event ", JSON.stringify(event));
+  console.log("Event Received:", JSON.stringify(event));
+
   for (const record of event.Records) {
     const recordBody = JSON.parse(record.body);        // Parse SQS message
     const snsMessage = JSON.parse(recordBody.Message); // Parse SNS message
 
     if (snsMessage.Records) {
-      console.log("Record body ", JSON.stringify(snsMessage));
       for (const messageRecord of snsMessage.Records) {
+        const eventName = messageRecord.eventName;
         const s3e = messageRecord.s3;
         const srcBucket = s3e.bucket.name;
-        // Object key may have spaces or unicode non-ASCII characters.
         const srcKey = decodeURIComponent(s3e.object.key.replace(/\+/g, " "));
         const extension = srcKey.split(".").pop()?.toLowerCase();
 
-        // Validate file extension
-        if (!extension || !validExtensions.includes(`.${extension}`)) {
-          throw new Error(`Unsupported file extension: ${extension}`);
-        }
-
-        // Add to DynamoDB table
         try {
-          const params: PutItemCommandInput = {
-            TableName: process.env.DYNAMODB_TABLE,
-            Item: {
-              imageName: { S: srcKey }
-            },
-          };
+          if (eventName.startsWith("ObjectCreated")) {
+            // **Handle Object Upload**
+            console.log(`Processing upload for ${srcKey}`);
 
-          console.log("Adding image to DynamoDB:", params);
-          await dynamodb.send(new PutItemCommand(params));
-          console.log(`Successfully added ${srcKey} to DynamoDB.`);
-        } catch (error) {
-          console.error("Error adding item to DynamoDB:", error);
-          throw error; 
-        }
+            // Validate file extension
+            if (!extension || !validExtensions.includes(`.${extension}`)) {
+              console.error(`Unsupported file extension: ${extension}`);
+              throw new Error(`Unsupported file extension: ${extension}`); // Send message to DLQ
+            }
 
-        // Process the image (Optional: Download or handle the image further)
-        try {
-          const getObjectParams: GetObjectCommandInput = {
-            Bucket: srcBucket,
-            Key: srcKey,
-          };
-          const origimage = await s3.send(new GetObjectCommand(getObjectParams));
-          console.log(`Successfully retrieved object: ${srcKey}`);
-          // Further processing can be done here if needed
+            // Add item to DynamoDB
+            const params: PutItemCommandInput = {
+              TableName: process.env.DYNAMODB_TABLE,
+              Item: {
+                imageName: { S: srcKey },
+              },
+            };
+            console.log("Adding image to DynamoDB:", params);
+            await dynamodb.send(new PutItemCommand(params));
+            console.log(`Successfully added ${srcKey} to DynamoDB.`);
+          } else if (eventName.startsWith("ObjectRemoved")) {
+            // **Handle Object Deletion**
+            console.log(`Processing deletion for ${srcKey}`);
+            const deleteParams = {
+              TableName: process.env.DYNAMODB_TABLE,
+              Key: {
+                imageName: { S: srcKey },
+              },
+            };
+            console.log("Deleting image from DynamoDB:", deleteParams);
+            await dynamodb.send(new DeleteItemCommand(deleteParams));
+            console.log(`Successfully deleted ${srcKey} from DynamoDB.`);
+          } else {
+            console.warn(`Unhandled event type: ${eventName}`);
+          }
         } catch (error) {
-          console.error("Error retrieving object from S3:", error);
-          throw error;
+          console.error("Error processing record:", error);
+          throw error; // Ensure errors are sent to the DLQ
         }
       }
     }
