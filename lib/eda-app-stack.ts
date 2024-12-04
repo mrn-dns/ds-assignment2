@@ -42,7 +42,7 @@ export class EDAAppStack extends cdk.Stack {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
       deadLetterQueue: {
         queue: imageDLQ,
-        maxReceiveCount: 3,
+        maxReceiveCount: 2,
       }
     });
 
@@ -53,18 +53,17 @@ export class EDAAppStack extends cdk.Stack {
     }); 
 
 
-    // Subscribing queue to topic
+    // Subscribing queue to DynamoDB add/delete event
     newImageTopic.addSubscription(new subs.SqsSubscription(imageProcessQueue, {
       filterPolicyWithMessageBody: {
         Records: sns.FilterOrPolicy.policy({
           eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({
-            allowlist: ["ObjectCreated:Put"],
+            allowlist: ["ObjectCreated:Put", "ObjectRemoved:Delete"], // Handle both upload and delete events
           })),
-        })
-      }
-    })
-  );
-
+        }),
+      },
+    }));
+    
     // LAMBDA FUNCTIONS
 
     // Confirmation-Mailer lambda
@@ -115,6 +114,13 @@ export class EDAAppStack extends cdk.Stack {
       new s3n.SnsDestination(newImageTopic)  
   );
 
+    // S3 --> SNS
+    imagesBucket.addEventNotification(
+      s3.EventType.OBJECT_REMOVED,
+      new s3n.SnsDestination(newImageTopic)
+    );
+  
+
    // SQS --> Lambda
     const newImageEventSource = new events.SqsEventSource(imageProcessQueue, {
       batchSize: 5,
@@ -128,18 +134,6 @@ export class EDAAppStack extends cdk.Stack {
     });
 
     // SNS --> Lambda
-    newImageTopic.addSubscription(new subs.LambdaSubscription(confirmationMailerFn, {
-        filterPolicyWithMessageBody: {
-          Records: sns.FilterOrPolicy.policy({
-            eventName: sns.FilterOrPolicy.filter(sns.SubscriptionFilter.stringFilter({
-              allowlist: ["ObjectCreated:Put"],
-            })),
-          })
-        }
-      })
-    );
-
-    // SNS --> Lambda
     newImageTopic.addSubscription(new subs.LambdaSubscription(updateTableFn, {
         filterPolicy: {
           metadata_type: sns.SubscriptionFilter.stringFilter({
@@ -148,6 +142,12 @@ export class EDAAppStack extends cdk.Stack {
         }
       })
     )
+
+    confirmationMailerFn.addEventSource(new DynamoEventSource(dynamoTable, {
+      startingPosition: StartingPosition.LATEST, // Start from the latest records
+      batchSize: 5,                             // Process up to 5 records per batch
+      retryAttempts: 2,                         // Retry twice if Lambda invocation fails
+    }));
 
     logImageFn.addEventSource(newImageEventSource);
     rejectionMailerFn.addEventSource(rejectionMailEventSource);
