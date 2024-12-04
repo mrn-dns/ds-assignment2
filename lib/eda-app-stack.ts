@@ -42,7 +42,7 @@ export class EDAAppStack extends cdk.Stack {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
       deadLetterQueue: {
         queue: imageDLQ,
-        maxReceiveCount: 2,
+        maxReceiveCount: 1,
       }
     });
 
@@ -129,8 +129,8 @@ export class EDAAppStack extends cdk.Stack {
 
     // SQS --> Lambda
     const rejectionMailEventSource = new events.SqsEventSource(imageDLQ, {
-      batchSize: 5,
-      maxBatchingWindow: cdk.Duration.seconds(5),
+      batchSize: 2,
+      maxBatchingWindow: cdk.Duration.seconds(2),
     });
 
     // SNS --> Lambda
