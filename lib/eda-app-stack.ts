@@ -30,10 +30,12 @@ export class EDAAppStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // Dead-Letter queue
     const imageDLQ = new sqs.Queue(this, "img-dlq", {
       retentionPeriod: cdk.Duration.minutes(10),
     })
 
+    // Image queue
     const imageProcessQueue = new sqs.Queue(this, "img-created-queue", {
       receiveMessageWaitTime: cdk.Duration.seconds(10),
       deadLetterQueue: {
@@ -43,11 +45,13 @@ export class EDAAppStack extends cdk.Stack {
     });
 
 
+    // Topic creation
     const newImageTopic = new sns.Topic(this, "NewImageTopic", {
       displayName: "New Image topic",
     }); 
 
 
+    // Subscribing queue to topic
     newImageTopic.addSubscription(new subs.SqsSubscription(imageProcessQueue, {
       filterPolicyWithMessageBody: {
         Records: sns.FilterOrPolicy.policy({
@@ -59,8 +63,9 @@ export class EDAAppStack extends cdk.Stack {
     })
   );
 
-    // Lambda functions
+    // LAMBDA FUNCTIONS
 
+    // Confirmation-Mailer lambda
     const confirmationMailerFn = new lambdanode.NodejsFunction(this, "confirmation-mailer-function", {
       runtime: lambda.Runtime.NODEJS_16_X,
       memorySize: 1024,
@@ -68,6 +73,7 @@ export class EDAAppStack extends cdk.Stack {
       entry: `${__dirname}/../lambdas/confirmation-mailer.ts`,
     });
 
+    // Rejection-Mailer lambda
     const rejectionMailerFn = new lambdanode.NodejsFunction(
       this,
       "RejectionMailerFn",
@@ -79,6 +85,7 @@ export class EDAAppStack extends cdk.Stack {
       }
     );
 
+    // Process image lambda
     const logImageFn = new lambdanode.NodejsFunction(this, "LogImageFn", {
       runtime: lambda.Runtime.NODEJS_18_X,
       entry: `${__dirname}/../lambdas/log-image.ts`,
@@ -89,6 +96,7 @@ export class EDAAppStack extends cdk.Stack {
       },
     });
 
+    // Update DynamoDB Table lambda
     const updateTableFn = new lambdanode.NodejsFunction(this, "UpdateTableFn", {
       runtime: lambda.Runtime.NODEJS_18_X,
       memorySize: 1024,
@@ -129,6 +137,7 @@ export class EDAAppStack extends cdk.Stack {
       })
     );
 
+    // SNS --> Lambda
     newImageTopic.addSubscription(new subs.LambdaSubscription(updateTableFn, {
         filterPolicy: {
           metadata_type: sns.SubscriptionFilter.stringFilter({
