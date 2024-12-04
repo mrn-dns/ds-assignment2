@@ -8,33 +8,26 @@ __YouTube Demo link__ - [The URL of the video demonstration of the app.]
 
 ### Phase 1.
 
-[ List the Lambda functions in this phase's architecture and state their working status - Fully implemented / Partially working / Not implemented. For partially working lambdas, state briefly what is defective in their implementation.]
-
-e.g.
-
 + Confirmation Mailer - Fully implemented.
-+ Rejection Mailer - Partially working. The Lambda is triggered at the correct times, but the emails are not being received.
-+ Log Image -  Fully implemented. 
++ Rejection Mailer - Fully implemented.
++ Log Image -  Fully implemented.
 
++ <b>Test Confirmation mailer: </b><ins>aws s3 cp ./images/sunflower.jpeg  s3://edastack-images9bf4dcd5-p263ocs5cett/sunflower.jpeg</ins>
++ <b>Test Rejection mailer: </b><ins>aws s3 cp ./images/error.gif  s3://edastack-images9bf4dcd5-p263ocs5cett/error.gif</ins>
 ### Phase 2 (if relevant).
 
-[ List the Lambda functions in this phase's architecture and state their working status - Fully implemented / Partially working / Not implemented. For partially working lambdas, state briefly what is defective in their implementation.]
++ Confirmation Mailer - Fully implemented.
++ Rejection Mailer - Fully implemented.
++ Log Image - Fully implemented.
++ Update Table -  Fully implemented. Also, added message.json and attributes.json to make it easier to use the update command.
 
-e.g.
-
-+ Confirmation Mailer - Partially working. The lambda is triggered too often. The image metadata messages are not being filtered out as required.
-+ Rejection Mailer - Fully implemented 
-+ Log Image - Fully implemented 
-+ Update Table -  Fully implemented.
++ <b>Update command: </b><ins>aws sns publish --topic-arn "arn:aws:sns:region:accountID:topicID" --message-attributes file://attributes.json --message file://message.json</ins>
 
 ### Phase 3 (if relevant).
 
-[ List the Lambda functions in this phase's architecture and state their working status - Fully implemented / Partially working / Not implemented. For partially working lambdas, state briefly what is defective in their implementation.]
-
-e.g.
-
-+ Confirmation Mailer - Not implemented.
++ Confirmation Mailer - Fully implemented. Triggered on DynamoDB add action.
++ Rejection Mailer - Fully implemented.
 + Process Image - Fully implemented.
 + Update Table - Fully implemented.
-+ etc
-+ etc
+
++ <b>Delete command: </b><ins>aws s3api delete-object --bucket edastack-images9bf4dcd5-1xwb81w15o6o --key image1.jpeg</ins>
