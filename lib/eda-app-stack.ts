@@ -11,11 +11,8 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import { StreamViewType } from "aws-cdk-lib/aws-dynamodb";
 import { DynamoEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
 import { StartingPosition } from "aws-cdk-lib/aws-lambda";
-
-
 import { Construct } from "constructs";
 import { DYNAMODB_TABLE } from "env";
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class EDAAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -32,6 +29,7 @@ export class EDAAppStack extends cdk.Stack {
     const dynamoTable = new cdk.aws_dynamodb.Table(this, "ImageTable", {
       partitionKey: { name: "imageName", type: cdk.aws_dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      stream: StreamViewType.NEW_AND_OLD_IMAGES, // Added to be able to handle events such as adding or deleting items
     });
 
     // Dead-Letter queue
