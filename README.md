@@ -4,6 +4,16 @@ __Name:__ Denis Remus Marincas
 
 __YouTube Demo link__ - https://youtu.be/IDwsWgrviZY
 
+## How to get started
+
+1. Clone this repository and add `env.ts` to the base file:
+```
+export const SES_REGION = 'eu-west-1';
+export const SES_EMAIL_FROM = 'verified-identity-1'; 
+export const SES_EMAIL_TO =  'verified-identity-2'; 
+```
+NOTE: The verified identities must be email addresses verified in your AWS account.
+
 ### Phase 1.
 
 + Confirmation Mailer - Fully implemented.
